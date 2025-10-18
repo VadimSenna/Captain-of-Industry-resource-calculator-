@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-translate-key="pageTitle">Калькулятор ресурсов CoI</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6"> 
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CoI Кальк"> 
+    <link rel="apple-touch-icon" href="icon-192x192.png"> 
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-button.active { background-color: #3b82f6; color: white; }
+        
+        .table-header th { background-color: #f3f4f6; position: sticky; top: 0; z-index: 10; text-align: center;}
+
+        input[type="number"].qty-input { width: 60px; text-align: right; padding: 0.25rem; font-size: 0.8rem;}
+        input[type="text"].name-input { min-width: 120px; padding: 0.25rem; font-size: 0.8rem;}
+        input[type="url"].icon-url-input { min-width: 150px; padding: 0.25rem; font-size: 0.8rem;}
+        select.resource-select { min-width: 130px; padding: 0.25rem; font-size: 0.8rem;}
+
+        .removable-row:hover .remove-btn-recipe { opacity: 1; }
+        .remove-btn-recipe { opacity: 0.3; transition: opacity 0.2s; }
+        .section-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e5e7eb; }
+        .table-container { max-height: 65vh; overflow: auto; border: 1px solid #d1d5db; border-radius: 0.375rem; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0;}
+        th, td { padding: 0.5rem; border: 1px solid #e5e7eb; text-align: left; font-size: 0.8rem; white-space: nowrap; }
+        td input.input-sm, td select.input-sm { padding: 0.3rem 0.4rem; }
+        .input-sm { padding: 0.4rem 0.6rem; font-size: 0.8rem; border-radius: 0.25rem; border: 1px solid #d1d5db;}
+        .btn { padding: 0.4rem 0.8rem; border-radius: 0.375rem; font-weight: 500; transition: background-color 0.2s; cursor: pointer; font-size: 0.8rem; }
+        .btn-primary { background-color: #3b82f6; color: white; } .btn-primary:hover { background-color: #2563eb; }
+        .btn-danger { background-color: #ef4444; color: white; } .btn-danger:hover { background-color: #dc2626; }
+        .btn-success { background-color: #22c55e; color: white; } .btn-success:hover { background-color: #16a34a; }
+        .btn-secondary { background-color: #6b7280; color: white; } .btn-secondary:hover { background-color: #4b5563; }
+        .btn-warning { background-color: #f59e0b; color: white; } .btn-warning:hover { background-color: #d97706; }
+
+        .btn-xs { padding: 0.2rem 0.4rem; font-size: 0.7rem; margin-left: 0.25rem; }
+        
+        .text-balance-positive { color: #16a34a; }
+        .text-balance-negative { color: #dc2626; font-weight: bold; } 
+
+        #languageSelectorContainer { margin-bottom: 1rem; text-align: right; }
+
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .modal-header { padding-bottom: 10px; border-bottom: 1px solid #eee; font-size: 1.25rem; font-weight: 600; }
+        .modal-body { padding: 15px 0; } .modal-footer { padding-top: 10px; border-top: 1px solid #eee; text-align: right; }
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
+        .spinner { border: 3px solid rgba(0, 0, 0, 0.1); width: 20px; height: 20px; border-radius: 50%; border-left-color: #09f; display: inline-block; vertical-align: middle; margin-left: 6px; animation: spin 1s ease infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .resource-slots-container { display: flex; flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: flex-start; padding: 0.25rem; border: 1px dashed #cbd5e1; min-height: 80px; max-width: 400px; }
+        .resource-slot { display: flex; flex-direction: column; align-items: center; padding: 0.25rem; margin-right: 0.5rem; border: 1px solid #e2e8f0; border-radius: 0.25rem; background-color: #f8fafc; min-width: 100px; text-align: center; }
+        .resource-slot img.slot-icon { max-width: 32px; max-height: 32px; margin-bottom: 0.1rem; object-fit: contain; }
+        /* Removed .resource-name-display as it's no longer needed for static text */
+        .resource-slot span.rate-display { font-size: 0.7rem; color: #475569; margin-top: 0.1rem; }
+        .resource-slot .btn-xs { align-self: center; margin-top: 0.2rem; }
+        #recipesDetailTable th, #recipesDetailTable td { vertical-align: top; }
+        .resource-list-icon { max-width: 24px; max-height: 24px; margin-right: 8px; vertical-align: middle; }
+        
+        .divider-line-red { border-right: 3px solid red !important; }
+        
+        .bg-light-green { background-color: #f0fff4 !important; } 
+        .bg-light-red { background-color: #fff0f0 !important; } 
+
+    </style>
+</head>
+<body class="bg-gray-100 p-2 md:p-4">
+    <div class="container mx-auto bg-white p-3 md:p-4 rounded-lg shadow-xl">
+        <h1 class="text-2xl md:text-3xl font-bold mb-1 text-center text-blue-700" data-translate-key="mainTitle">Калькулятор ресурсов Captain of Industry</h1>
+        
+        <div id="languageSelectorContainer">
+            <label for="languageSelector" class="mr-1 text-xs md:text-sm text-gray-700" data-translate-key="languageLabel">Язык:</label>
+            <select id="languageSelector" onchange="changeLanguage(this.value)" class="input-sm text-xs md:text-sm"></select>
+        </div>
+
+        <div class="mb-4 border-b border-gray-300">
+            <nav class="flex flex-wrap space-x-1" aria-label="Tabs">
+                <button class="tab-button active px-3 py-1.5 md:px-4 md:py-2 font-medium text-xs md:text-sm rounded-t-lg text-gray-700 hover:bg-blue-100" onclick="openTab(event, 'recipesTab')" data-translate-key="recipesTab">Рецепты</button>
+                <button class="tab-button px-3 py-1.5 md:px-4 md:py-2 font-medium text-xs md:text-sm rounded-t-lg text-gray-700 hover:bg-blue-100" onclick="openTab(event, 'balanceTab')" data-translate-key="balanceTab">Баланс</button>
+                <button class="tab-button px-3 py-1.5 md:px-4 md:py-2 font-medium text-xs md:text-sm rounded-t-lg text-gray-700 hover:bg-blue-100" onclick="openTab(event, 'consumptionTab')" data-translate-key="consumptionTab">Потребление</button>
+                <button class="tab-button px-3 py-1.5 md:px-4 md:py-2 font-medium text-xs md:text-sm rounded-t-lg text-gray-700 hover:bg-blue-100" onclick="openTab(event, 'productionTab')" data-translate-key="productionTab">Производство</button>
+                <button class="tab-button px-3 py-1.5 md:px-4 md:py-2 font-medium text-xs md:text-sm rounded-t-lg text-gray-700 hover:bg-blue-100" onclick="openTab(event, 'resourcesTab')" data-translate-key="resourcesListTab">Ресурсы</button>
+            </nav>
+        </div>
+
+        <div id="resourcesTab" class="tab-content">
+            <h2 class="section-title" data-translate-key="resourcesListTitle">Список Ресурсов</h2>
+            <p class="mb-2 text-xs md:text-sm text-gray-600" data-translate-key="resourcesListDescription">Добавьте сюда все ресурсы. Названия должны быть уникальными.</p>
+            <div class="mb-2 grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
+                <input type="text" id="newResourceName" class="input-sm name-input" data-translate-key="newResourcePlaceholder" placeholder="Название нового ресурса">
+                <input type="url" id="newResourceIconUrl" class="input-sm icon-url-input" data-translate-key="newResourceIconPlaceholder" placeholder="URL иконки (необязательно)">
+                <button onclick="addResourceToList()" class="btn btn-primary" data-translate-key="addResourceButton">Добавить ресурс</button>
+            </div>
+            <div class="table-container">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="table-header">
+                        <tr>
+                            <th class="w-1/2" data-translate-key="resourceNameHeader">Название Ресурса</th>
+                            <th class="w-1/2" data-translate-key="resourceIconUrlHeader">URL Иконки</th>
+                            <th class="w-auto text-center" data-translate-key="actionHeader">Действие</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resourceListTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="recipesTab" class="tab-content active">
+            <h2 class="section-title" data-translate-key="recipesProductionTitle">Рецепты Производства</h2>
+            <p class="mb-2 text-xs md:text-sm text-gray-600" data-translate-key="recipesDescription">Изменяйте "Кол-во зданий". Используйте кнопки `+` и `-` для управления ресурсами.</p>
+            <div class="flex flex-wrap space-x-2 mb-2">
+                <button onclick="addEmptyRecipeRow()" class="btn btn-primary" data-translate-key="addRecipeButton">Добавить Рецепт</button>
+                <button id="suggestRecipeBtn" onclick="suggestRecipeFromSurplus()" class="btn btn-success">
+                    <span data-translate-key="suggestRecipeButton">✨ Предложить рецепт</span>
+                    <span id="geminiLoadingSpinner" class="spinner" style="display: none;"></span>
+                </button>
+                <button onclick="saveDataToFile()" class="btn btn-warning" data-translate-key="saveDataButton">💾 Сохранить данные</button>
+                <label class="btn btn-secondary cursor-pointer">
+                    <span data-translate-key="loadDataButton">📂 Загрузить данные</span>
+                    <input type="file" id="loadFileInput" class="hidden" accept=".json" onchange="loadDataFromFile(event)">
+                </label>
+            </div>
+            <div class="table-container">
+                <table id="recipesDetailTable" class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="table-header">
+                        <tr>
+                            <th class="min-w-[130px]" data-translate-key="recipeNameHeader">Рецепт/Продукт</th>
+                            <th class="min-w-[120px] divider-line-red" data-translate-key="buildingHeader">Здание</th>
+                            <th class="min-w-[80px]" data-translate-key="cycleTimeHeader">Время (сек)</th>
+                            <th class="min-w-[80px] divider-line-red" data-translate-key="buildingCountHeader">Кол-во зданий</th>
+                            <th class="min-w-[80px] bg-light-green" data-translate-key="addInputButtonFixed">Добавить Вход</th>
+                            <th class="min-w-[300px] max-w-[400px] bg-light-green divider-line-red" data-translate-key="inputResourcesHeader">Входные ресурсы</th>
+                            <th class="min-w-[80px] bg-light-red" data-translate-key="addOutputButtonFixed">Добавить Выход</th>
+                            <th class="min-w-[300px] max-w-[400px] bg-light-red" data-translate-key="outputResourcesHeader">Выходные ресурсы</th>
+                            <th class="min-w-[100px]" data-translate-key="actionsHeader">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recipesTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="balanceTab" class="tab-content">
+            <h2 class="section-title" data-translate-key="resourceBalanceTitle">Баланс Ресурсов</h2>
+            <div class="table-container">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="table-header">
+                        <tr>
+                            <th data-translate-key="resourceNameHeader">Название Ресурса</th>
+                            <th data-translate-key="totalProductionCol">Производство (ед/сек)</th>
+                            <th data-translate-key="totalConsumptionCol">Потребление (ед/сек)</th>
+                            <th data-translate-key="balanceCol">Баланс (ед/сек)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="balanceSummaryTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="consumptionTab" class="tab-content">
+            <h2 class="section-title" data-translate-key="consumptionSummaryTitle">Сводка Потребления</h2>
+             <div class="table-container">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="table-header">
+                        <tr>
+                            <th data-translate-key="resourceNameHeader">Название Ресурса</th>
+                            <th data-translate-key="totalConsumptionCol">Потребление (ед/сек)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="consumptionSummaryTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="productionTab" class="tab-content">
+            <h2 class="section-title" data-translate-key="productionSummaryTitle">Сводка Производства</h2>
+            <div class="table-container">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="table-header">
+                        <tr>
+                            <th data-translate-key="resourceNameHeader">Название Ресурса</th>
+                            <th data-translate-key="totalProductionCol">Производство (ед/сек)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productionSummaryTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="geminiSuggestionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close-button" onclick="closeGeminiModal()">&times;</span>
+                <h2 data-translate-key="geminiModalTitle">✨ Предложение Gemini</h2>
+            </div>
+            <div class="modal-body">
+                <p id="geminiSuggestionText" class="text-sm mb-4"></p>
+                <div id="geminiRecipeDetails" class="text-sm">
+                    <strong data-translate-key="suggestedRecipeNameLabel">Название рецепта:</strong> <span id="modalRecipeName"></span><br>
+                    <strong data-translate-key="suggestedBuildingLabel">Здание:</strong> <span id="modalBuildingName"></span><br>
+                    <strong data-translate-key="suggestedInputsLabel">Вход:</strong> <ul id="modalInputsList" class="list-disc list-inside ml-4"></ul>
+                    <strong data-translate-key="suggestedOutputsLabel">Выход:</strong> <ul id="modalOutputsList" class="list-disc list-inside ml-4"></ul>
+                </div>
+                 <p id="geminiErrorText" class="text-red-500 text-sm mt-2" style="display: none;"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="addSuggestedRecipeBtn" class="btn btn-primary" data-translate-key="addThisRecipeButton">Добавить рецепт</button>
+                <button onclick="closeGeminiModal()" class="btn btn-secondary" data-translate-key="closeButton">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const defaultResourceTranslations = {
+            ironOre: { ru: 'Железная руда', en: 'Iron Ore', uk: 'Залізна руда', de: 'Eisenerz' },
+            coal: { ru: 'Уголь', en: 'Coal', uk: 'Вугілля', de: 'Kohle' },
+            limestone: { ru: 'Известь', en: 'Limestone', uk: 'Вапно', de: 'Kalkstein' },
+            water: { ru: 'Вода', en: 'Water', uk: 'Вода', de: 'Wasser' },
+            sand: { ru: 'Песок', en: 'Sand', uk: 'Пісок', de: 'Sand' },
+            copperOre: { ru: 'Медная руда', en: 'Copper Ore', uk: 'Мідна руда', de: 'Kupfererz' },
+            moltenIron: { ru: 'Расплавленное железо', en: 'Molten Iron', uk: 'Розплавлене залізо', de: 'Flüssiges Eisen' },
+            steel: { ru: 'Сталь', en: 'Steel', uk: 'Сталь', de: 'Stahl' },
+            concrete: { ru: 'Бетон', en: 'Concrete', uk: 'Бетон', de: 'Beton' },
+            glass: { ru: 'Стекло', en: 'Glass', uk: 'Скло', de: 'Glas' },
+            copperIngots: { ru: 'Медные слитки', en: 'Copper Ingots', uk: 'Мідні злитки', de: 'Kupferbarren' },
+            steamLow: { ru: 'Пар (низк.)', en: 'Steam (Low)', uk: 'Пара (низьк.)', de: 'Dampf (Niederdruck)' },
+            exhaustGas: { ru: 'Выхлоп', en: 'Exhaust', uk: 'Вихлоп', de: 'Abgas' },
+            slag: { ru: 'Шлак', en: 'Slag', uk: 'Schlacke' }
+        };
+
+        const translations = {
+            ru: {
+                pageTitle: "Калькулятор ресурсов CoI", mainTitle: "Калькулятор ресурсов Captain of Industry", languageLabel: "Язык:",
+                recipesTab: "Рецепты", balanceTab: "Баланс", consumptionTab: "Потребление", productionTab: "Производство", resourcesListTab: "Ресурсы",
+                resourcesListTitle: "Список Ресурсов", resourcesListDescription: "Добавьте сюда все ресурсы. Названия должны быть уникальными.",
+                newResourcePlaceholder: "Название нового ресурса", newResourceIconPlaceholder: "URL иконки (необязательно)", addResourceButton: "Добавить ресурс", 
+                resourceNameHeader: "Название Ресурса", resourceIconUrlHeader: "URL Иконки", actionHeader: "Действие", actionsHeader: "Действия", deleteButton: "Удалить",
+                recipesProductionTitle: "Рецепты Производства", recipesDescription: "Изменяйте \"Кол-во зданий\". Используйте кнопки `+` и `-` для управления ресурсами.",
+                addRecipeButton: "Добавить Рецепт", recipeNameHeader: "Рецепт/Продукт", buildingHeader: "Здание", cycleTimeHeader: "Время (сек)", buildingCountHeader: "Кол-во зданий",
+                inputResourcesHeader: "Входные ресурсы", outputResourcesHeader: "Выходные ресурсы", 
+                addInputButtonFixed: "Добавить Вход", addOutputButtonFixed: "Добавить Выход", 
+                resourceCol: "Ресурс", quantityCol: "Кол-во", consumptionRateCol: "Потр.(ед/сек)", productionRateCol: "Произв.(ед/сек)",
+                addInputButton: "+ Вход", addOutputButton: "+ Выход", removeRecipeButton: "Удалить рецепт",
+                resourceBalanceTitle: "Баланс Ресурсов", totalProductionCol: "Производство (ед/сек)", totalConsumptionCol: "Потребление (ед/сек)", balanceCol: "Баланс (ед/сек)",
+                consumptionSummaryTitle: "Сводка Потребления", productionSummaryTitle: "Сводка Производства",
+                alertResourceExists: "Ресурс с таким названием уже существует.", alertResourceInUse: "Этот ресурс используется в рецептах. Сначала удалите или измените эти рецепты.",
+                selectResourcePrompt: "-- Выберите --",
+                suggestRecipeButton: "✨ Предложить рецепт", saveDataButton: "💾 Сохранить данные", loadDataButton: "📂 Загрузить данные",
+                geminiModalTitle: "✨ Предложение Gemini",
+                suggestedRecipeNameLabel: "Название рецепта:", suggestedBuildingLabel: "Здание:", suggestedInputsLabel: "Вход:", suggestedOutputsLabel: "Выход:",
+                addThisRecipeButton: "Добавить рецепт", closeButton: "Закрыть",
+                geminiLoading: "Загрузка от Gemini...", geminiNoSurplus: "Нет избыточных ресурсов.",
+                geminiError: "Ошибка Gemini. Попробуйте позже.", geminiParseError: "Не удалось обработать ответ Gemini.",
+                confirmLoad: "Загрузка данных перезапишет текущие данные. Продолжить?", fileLoadError: "Ошибка чтения файла.", invalidFileFormat: "Неверный формат файла сохранения.",
+                dataLoadedSuccessfully: "Данные успешно загружены!",
+                initialRecipeMoltenIronName: "Расплавленное железо (рецепт)", initialRecipeSteelName: "Сталь (рецепт)",
+                building_smelter_1_name: "Плавильня I", building_converter_1_name: "Конвертер т. I"
+            },
+            en: { 
+                pageTitle: "CoI Resource Calculator", mainTitle: "Captain of Industry Resource Calculator", languageLabel: "Language:",
+                recipesTab: "Recipes", balanceTab: "Balance", consumptionTab: "Consumption", productionTab: "Production", resourcesListTab: "Resources",
+                resourcesListTitle: "Resources List", resourcesListDescription: "Add all resources here. Names must be unique.",
+                newResourcePlaceholder: "New resource name", newResourceIconPlaceholder: "Icon URL (optional)", addResourceButton: "Add Resource", 
+                resourceNameHeader: "Resource Name", resourceIconUrlHeader: "Icon URL", actionHeader: "Action", actionsHeader: "Actions", deleteButton: "Delete",
+                recipesProductionTitle: "Production Recipes", recipesDescription: "Adjust \"Buildings\". Use `+` and `-` buttons to manage resources.",
+                addRecipeButton: "Add Recipe", recipeNameHeader: "Recipe/Product", buildingHeader: "Building", cycleTimeHeader: "Time (s)", buildingCountHeader: "Buildings",
+                inputResourcesHeader: "Input Resources", outputResourcesHeader: "Output Resources",
+                addInputButtonFixed: "Add Input", addOutputButtonFixed: "Add Output",
+                resourceCol: "Resource", quantityCol: "Qty", consumptionRateCol: "Cons./s", productionRateCol: "Prod./s",
+                addInputButton: "+ Input", addOutputButton: "+ Output", removeRecipeButton: "Delete Recipe",
+                resourceBalanceTitle: "Resource Balance", totalProductionCol: "Production/s", totalConsumptionCol: "Consumption/s", balanceCol: "Balance/s",
+                consumptionSummaryTitle: "Consumption Summary", productionSummaryTitle: "Production Summary",
+                alertResourceExists: "Resource with this name already exists.", alertResourceInUse: "Resource is used in recipes. Modify or delete them first.",
+                selectResourcePrompt: "-- Select --",
+                suggestRecipeButton: "✨ Suggest Recipe", saveDataButton: "💾 Save Data", loadDataButton: "📂 Load Data",
+                geminiModalTitle: "✨ Gemini Suggestion",
+                suggestedRecipeNameLabel: "Recipe Name:", suggestedBuildingLabel: "Building:", suggestedInputsLabel: "Inputs:", suggestedOutputsLabel: "Outputs:",
+                addThisRecipeButton: "Add Recipe", closeButton: "Close",
+                geminiLoading: "Loading from Gemini...", geminiNoSurplus: "No surplus resources.",
+                geminiError: "Gemini error. Try later.", geminiParseError: "Could not process Gemini's response.",
+                confirmLoad: "Loading data will overwrite current data. Continue?", fileLoadError: "Error reading file.", invalidFileFormat: "Invalid save file format.",
+                dataLoadedSuccessfully: "Data loaded successfully!",
+                initialRecipeMoltenIronName: "Molten Iron (Recipe)", initialRecipeSteelName: "Steel (Recipe)",
+                building_smelter_1_name: "Smelter I", building_converter_1_name: "Converter Mk. I"
+            },
+             uk: { 
+                pageTitle: "Калькулятор ресурсів CoI", mainTitle: "Калькулятор ресурсів Captain of Industry", languageLabel: "Мова:",
+                recipesTab: "Рецепти", balanceTab: "Баланс", consumptionTab: "Споживання", productionTab: "Виробництво", resourcesListTab: "Ресурси",
+                resourcesListTitle: "Список Ресурсів", resourcesListDescription: "Додайте сюди всі ресурси. Назви мають бути унікальними.",
+                newResourcePlaceholder: "Назва нового ресурсу", newResourceIconPlaceholder: "URL іконки (необов'язково)", addResourceButton: "Додати ресурс",
+                resourceNameHeader: "Назва Ресурсу", resourceIconUrlHeader: "URL Іконки", actionHeader: "Дія", actionsHeader: "Дії", deleteButton: "Видалити",
+                recipesProductionTitle: "Рецепти Виробництва", recipesDescription: "Змінюйте \"К-сть будівель\". Використовуйте кнопки `+` та `-` для керування ресурсами.",
+                addRecipeButton: "Додати Рецепт", recipeNameHeader: "Рецепт/Продукт", buildingHeader: "Будівля", cycleTimeHeader: "Час (с)", buildingCountHeader: "К-сть будівель",
+                inputResourcesHeader: "Вхідні ресурси", outputResourcesHeader: "Вихідні ресурси",
+                addInputButtonFixed: "Додати Вхід", addOutputButtonFixed: "Додати Вихід",
+                resourceCol: "Ресурс", quantityCol: "К-сть", consumptionRateCol: "Спож./с", productionRateCol: "Вироб./с",
+                addInputButton: "+ Вхід", addOutputButton: "+ Вихід", removeRecipeButton: "Видалити рецепт",
+                resourceBalanceTitle: "Баланс Ресурсів", totalProductionCol: "Виробництво/с", totalConsumptionCol: "Споживання/с", balanceCol: "Баланс/с",
+                consumptionSummaryTitle: "Зведення Споживання", productionSummaryTitle: "Зведення Виробництва",
+                alertResourceExists: "Ресурс з такою назвою вже існує.", alertResourceInUse: "Ресурс використовується в рецептах. Змініть або видаліть їх спочатку.",
+                selectResourcePrompt: "-- Оберіть --",
+                suggestRecipeButton: "✨ Запропонувати", saveDataButton: "💾 Зберегти дані", loadDataButton: "📂 Завантажити дані",
+                geminiModalTitle: "✨ Пропозиція Gemini",
+                suggestedRecipeNameLabel: "Назва рецепту:", suggestedBuildingLabel: "Будівля:", suggestedInputsLabel: "Вхід:", suggestedOutputsLabel: "Вихід:",
+                addThisRecipeButton: "Додати рецепт", closeButton: "Закрити",
+                geminiLoading: "Завантаження від Gemini...", geminiNoSurplus: "Немає надлишкових ресурсів.",
+                geminiError: "Помилка Gemini. Спробуйте пізніше.", geminiParseError: "Не вдалося обробити відповідь Gemini.",
+                confirmLoad: "Завантаження даних перезапише поточні дані. Продовжити?", fileLoadError: "Помилка читання файлу.", invalidFileFormat: "Невірний формат файлу збереження.",
+                dataLoadedSuccessfully: "Дані успішно завантажено!",
+                initialRecipeMoltenIronName: "Розплавлене залізо (рецепт)", initialRecipeSteelName: "Сталь (рецепт)",
+                building_smelter_1_name: "Плавильня I", building_converter_1_name: "Конвертер т. I"
+            },
+            de: { 
+                pageTitle: "CoI Ressourcen-Rechner", mainTitle: "Captain of Industry Ressourcen-Rechner", languageLabel: "Sprache:",
+                recipesTab: "Rezepte", balanceTab: "Bilanz", consumptionTab: "Verbrauch", productionTab: "Produktion", resourcesListTab: "Ressourcen",
+                resourcesListTitle: "Ressourcenliste", resourcesListDescription: "Fügen Sie hier alle Ressourcen hinzu. Namen müssen eindeutig sein.",
+                newResourcePlaceholder: "Neuer Ressourcenname", newResourceIconPlaceholder: "Icon-URL (optional)", addResourceButton: "Ressource hinzufügen",
+                resourceNameHeader: "Ressourcenname", resourceIconUrlHeader: "Icon-URL", actionHeader: "Aktion", actionsHeader: "Aktionen", deleteButton: "Löschen",
+                recipesProductionTitle: "Produktionsrezepte", recipesDescription: "\"Anzahl Gebäude\" anpassen. `+` und `-` Tasten verwenden, um Ressourcen zu verwalten.",
+                addRecipeButton: "Rezept hinzufügen", recipeNameHeader: "Rezept/Produkt", buildingHeader: "Gebäude", cycleTimeHeader: "Zeit (s)", buildingCountHeader: "Anz. Gebäude",
+                inputResourcesHeader: "Eingangsressourcen", outputResourcesHeader: "Ausgangsressourcen",
+                addInputButtonFixed: "Eingang hinzufügen", addOutputButtonFixed: "Ausgang hinzufügen",
+                resourceCol: "Ressource", quantityCol: "Menge", consumptionRateCol: "Verbr./s", productionRateCol: "Prod./s",
+                addInputButton: "+ Eingang", addOutputButton: "+ Ausgang", removeRecipeButton: "Rezept löschen",
+                resourceBalanceTitle: "Ressourcenbilanz", totalProductionCol: "Gesamtproduktion/s", totalConsumptionCol: "Gesamtverbrauch/s", balanceCol: "Bilanz/s",
+                consumptionSummaryTitle: "Verbrauchszusammenfassung", productionSummaryTitle: "Produktionszusammenfassung",
+                alertResourceExists: "Eine Ressource mit diesem Namen existiert bereits.", alertResourceInUse: "Diese Ressource wird in Rezepten verwendet. Bitte zuerst ändern oder löschen.",
+                selectResourcePrompt: "-- Wählen --",
+                suggestRecipeButton: "✨ Rezept vorschlagen", saveDataButton: "💾 Daten speichern", loadDataButton: "📂 Daten laden",
+                geminiModalTitle: "✨ Gemini Vorschlag",
+                suggestedRecipeNameLabel: "Rezeptname:", suggestedBuildingLabel: "Gebäude:", suggestedInputsLabel: "Eingang:", suggestedOutputsLabel: "Ausgang:",
+                addThisRecipeButton: "Rezept hinzufügen", closeButton: "Schließen",
+                geminiLoading: "Lade Vorschlag von Gemini...", geminiNoSurplus: "Keine überschüssigen Ressourcen.",
+                geminiError: "Fehler bei Gemini. Später versuchen.", geminiParseError: "Gemini-Antwort konnte nicht verarbeitet werden.",
+                confirmLoad: "Das Laden von Daten überschreibt aktuelle Daten. Fortfahren?", fileLoadError: "Fehler beim Lesen der Datei.", invalidFileFormat: "Ungültiges Speicherdateiformat.",
+                dataLoadedSuccessfully: "Daten erfolgreich geladen!",
+                initialRecipeMoltenIronName: "Flüssiges Eisen (Rezept)", initialRecipeSteelName: "Stahl (Rezept)",
+                building_smelter_1_name: "Schmelze I", building_converter_1_name: "Konverter Mk. I"
+            }
+        };
+        
+        ['ru', 'en', 'uk', 'de'].forEach(lang => {
+            translations[lang].resourceNames = {};
+            for (const key in defaultResourceTranslations) {
+                translations[lang].resourceNames[key] = defaultResourceTranslations[key][lang];
+            }
+        });
+
+        let currentLanguage = 'ru'; 
+        const supportedLanguages = [ 
+            { code: 'ru', name: 'Русский' }, 
+            { code: 'en', name: 'English' }, 
+            { code: 'uk', name: 'Українська' },
+            { code: 'de', name: 'Deutsch' }
+        ];
+
+        function getTranslation(key, lang = currentLanguage) {
+            const langTranslations = translations[lang] || translations['ru'];
+            if (key.startsWith('resourceNames.')) {
+                const resourceKey = key.substring('resourceNames.'.length);
+                return langTranslations.resourceNames?.[resourceKey] || defaultResourceTranslations[resourceKey]?.['en'] || resourceKey; 
+            }
+             if (key.startsWith('building_') || key.startsWith('initialRecipe')) { // Handle building and recipe names
+                return langTranslations[key] || translations['ru'][key] || key.replace(/building_|initialRecipe/g, '').replace(/Name$/, '').replace(/([A-Z])/g, ' $1').trim(); // Fallback for building/recipe names
+            }
+            return langTranslations[key] || translations['ru'][key] || key; 
+        }
+
+        function applyTranslations() {
+            document.querySelectorAll('[data-translate-key]').forEach(el => {
+                const key = el.dataset.translateKey;
+                if (el.tagName === 'INPUT' && el.placeholder) el.placeholder = getTranslation(key);
+                else if (el.tagName === 'TITLE') document.title = getTranslation(key);
+                else el.textContent = getTranslation(key);
+            });
+            document.querySelectorAll('select.resource-dropdown').forEach(s => populateResourceDropdown(s, s.value, true));
+        }
+        
+        function translateAndUpdateInitialResourceNames() {
+            resources.forEach(res => {
+                if (res.translationKey) { 
+                    res.name = getTranslation('resourceNames.' + res.translationKey);
+                }
+            });
+        }
+
+        function loadLanguage() {
+            const savedLang = localStorage.getItem('coiCalculatorLanguage');
+            if (savedLang && translations[savedLang]) currentLanguage = savedLang;
+            const sel = document.getElementById('languageSelector');
+            sel.innerHTML = ''; 
+            supportedLanguages.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l.code; opt.textContent = l.name;
+                if (l.code === currentLanguage) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            translateAndUpdateInitialResourceNames(); 
+            applyTranslations();
+        }
+        function changeLanguage(langCode) {
+            if (translations[langCode]) {
+                currentLanguage = langCode; localStorage.setItem('coiCalculatorLanguage', langCode);
+                translateAndUpdateInitialResourceNames(); 
+                loadInitialRecipes(); // Re-load initial recipes with new language
+                applyTranslations(); 
+                renderResourceList(); 
+                renderRecipesTable(); 
+                updateSummariesAndBalance(); 
+            }
+        }
+        
+        let initialDefaultResourcesSetup = [
+            { name: 'Железная руда', iconUrl: null, translationKey: 'ironOre' }, 
+            { name: 'Уголь', iconUrl: null, translationKey: 'coal' }, 
+            { name: 'Известь', iconUrl: null, translationKey: 'limestone' }, 
+            { name: 'Вода', iconUrl: null, translationKey: 'water' }, 
+            { name: 'Песок', iconUrl: null, translationKey: 'sand' }, 
+            { name: 'Медная руда', iconUrl: null, translationKey: 'copperOre' }, 
+            { name: 'Расплавленное железо', iconUrl: null, translationKey: 'moltenIron' }, 
+            { name: 'Сталь', iconUrl: null, translationKey: 'steel' }, 
+            { name: 'Бетон', iconUrl: null, translationKey: 'concrete' }, 
+            { name: 'Стекло', iconUrl: null, translationKey: 'glass' }, 
+            { name: 'Медные слитки', iconUrl: null, translationKey: 'copperIngots' }, 
+            { name: 'Пар (низк.)', iconUrl: null, translationKey: 'steamLow' }, 
+            { name: 'Выхлоп', iconUrl: null, translationKey: 'exhaustGas' }, 
+            { name: 'Шлак', iconUrl: null, translationKey: 'slag' }
+        ];
+        
+        let resources = JSON.parse(JSON.stringify(initialDefaultResourcesSetup)); 
+        let recipes = [];
+        let currentSuggestedRecipe = null; 
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadLanguage(); 
+            resources.sort((a,b) => a.name.localeCompare(b.name, currentLanguage)); 
+            renderResourceList(); 
+            loadInitialRecipes(); 
+            renderRecipesTable(); 
+            updateAllCalculations(); 
+            openTab(null, 'recipesTab');
+            document.getElementById('addSuggestedRecipeBtn').onclick = addSuggestedRecipeToTable;
+        });
+
+        function openTab(event, tabName) {
+            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            document.querySelectorAll('.tab-button').forEach(tb => tb.classList.remove('active'));
+            const btn = event ? event.currentTarget : document.querySelector(`.tab-button[onclick*="'${tabName}'"]`);
+            if (btn) btn.classList.add('active');
+        }
+        function showAlert(msgKey, isError = true) {
+            const msg = getTranslation(msgKey);
+            const modal = document.getElementById('geminiSuggestionModal');
+            if (isError && modal.style.display === 'block') {
+                 document.getElementById('geminiErrorText').textContent = msg;
+                 document.getElementById('geminiErrorText').style.display = 'block';
+                 document.getElementById('geminiRecipeDetails').style.display = 'none';
+            } else if (modal.style.display === 'block') {
+                 document.getElementById('geminiSuggestionText').textContent = msg;
+            } else { alert(msg); }
+        }
+        
+        function addResourceToList(resFromSuggestion = null) {
+            const nameInput = document.getElementById('newResourceName');
+            const iconUrlInput = document.getElementById('newResourceIconUrl');
+            const name = resFromSuggestion ? resFromSuggestion.name : nameInput.value.trim();
+            const iconUrl = resFromSuggestion ? resFromSuggestion.iconUrl : iconUrlInput.value.trim() || null;
+
+            if (name && !resources.some(r => r.name === name)) { 
+                resources.push({ name, iconUrl, translationKey: null }); 
+                resources.sort((a, b) => a.name.localeCompare(b.name, currentLanguage));
+                renderResourceList(); 
+                updateAllResourceDropdownsInRecipes();
+                if (!resFromSuggestion) { nameInput.value = ''; iconUrlInput.value = '';}
+                updateAllCalculations(); return true;
+            } else if (resources.some(r => r.name === name) && !resFromSuggestion) {
+                showAlert('alertResourceExists');
+            }
+            return resources.some(r => r.name === name);
+        }
+
+        function removeResourceFromList(resName) {
+            if (recipes.some(r => r.inputs.some(i => i.name === resName) || r.outputs.some(o => o.name === resName))) {
+                showAlert('alertResourceInUse'); return;
+            }
+            resources = resources.filter(r => r.name !== resName); 
+            renderResourceList();
+            updateAllResourceDropdownsInRecipes(); 
+            updateAllCalculations();
+        }
+
+        function renderResourceList() {
+            tbody = document.getElementById('resourceListTableBody'); tbody.innerHTML = '';
+            const sortedResources = [...resources].sort((a,b) => a.name.localeCompare(b.name, currentLanguage));
+            sortedResources.forEach(res => {
+                const r = tbody.insertRow();
+                const nameCell = r.insertCell();
+                if (res.iconUrl) {
+                    const img = document.createElement('img');
+                    img.src = res.iconUrl;
+                    img.alt = res.name;
+                    img.classList.add('resource-list-icon');
+                    img.onerror = () => { img.style.display = 'none'; }; 
+                    nameCell.appendChild(img);
+                }
+                nameCell.appendChild(document.createTextNode(res.name));
+                
+                r.insertCell().textContent = res.iconUrl || '-';
+                const cell = r.insertCell(); cell.classList.add('text-center');
+                const btn = document.createElement('button'); btn.textContent = getTranslation('deleteButton');
+                btn.classList.add('btn', 'btn-danger', 'btn-xs'); btn.onclick = () => removeResourceFromList(res.name);
+                cell.appendChild(btn);
+            });
+        }
+        function updateAllResourceDropdownsInRecipes() { 
+            document.querySelectorAll('#recipesTableBody tr').forEach((rowEl, recIdx) => {
+                 if (!recipes[recIdx]) return; 
+                recipes[recIdx].inputs.forEach((inp, slotIdx) => {
+                    const sel = rowEl.querySelector(`select[data-recipe-idx="${recIdx}"][data-type="input"][data-slot-idx="${slotIdx}"]`);
+                    if (sel) populateResourceDropdown(sel, inp.name); 
+                });
+                recipes[recIdx].outputs.forEach((out, slotIdx) => {
+                    const sel = rowEl.querySelector(`select[data-recipe-idx="${recIdx}"][data-type="output"][data-slot-idx="${slotIdx}"]`);
+                    if (sel) populateResourceDropdown(sel, out.name); 
+                });
+            });
+        }
+        function populateResourceDropdown(selEl, currentVal, forceRepopulate = true) { 
+            if (forceRepopulate) { 
+                 selEl.innerHTML = `<option value="">${getTranslation('selectResourcePrompt')}</option>`;
+                 const sortedResourcesForDropdown = [...resources].sort((a,b) => a.name.localeCompare(b.name, currentLanguage));
+                 sortedResourcesForDropdown.forEach(rObj => { 
+                    const opt = document.createElement('option');
+                    opt.value = rObj.name; opt.textContent = rObj.name;
+                    selEl.appendChild(opt);
+                });
+            }
+            if (resources.some(r => r.name === currentVal)) selEl.value = currentVal;
+            else selEl.value = ""; 
+        }
+        function createResourceDropdown(type, slotIdx, recIdx, currentVal = '') {
+            const sel = document.createElement('select');
+            sel.classList.add('resource-select', 'input-sm', 'w-full', 'mb-1');
+            sel.dataset.type = type; sel.dataset.slotIdx = slotIdx; sel.dataset.recipeIdx = recIdx;
+            populateResourceDropdown(sel, currentVal, true); 
+            sel.onchange = (e) => handleRecipeDataChange(e.target, recIdx, type, slotIdx, 'name');
+            return sel;
+        }
+        function createNumericInput(val, recIdx, fieldType, slotIdx = null, subField = 'qty') {
+            const inp = document.createElement('input');
+            inp.type = 'number'; inp.min = '0'; inp.step = 'any'; inp.value = val;
+            inp.classList.add('input-sm', 'w-full', 'mb-1');
+            if(fieldType === 'inputQty' || fieldType === 'outputQty') inp.classList.add('qty-input');
+            inp.dataset.recipeIdx = recIdx; inp.dataset.fieldType = fieldType;
+            if (slotIdx !== null) inp.dataset.slotIdx = slotIdx;
+            if (subField) inp.dataset.subField = subField;
+            inp.oninput = (e) => {
+                let tField = fieldType;
+                if (fieldType === 'inputQty' || fieldType === 'outputQty') tField = subField;
+                handleRecipeDataChange(e.target, recIdx, (fieldType.startsWith('input') ? 'input' : (fieldType.startsWith('output') ? 'output' : fieldType)), slotIdx, tField);
+            }
+            return inp;
+        }
+        function handleRecipeDataChange(el, recIdx, type, slotIdx, field) {
+            const val = (el.type === 'number') ? (parseFloat(el.value) || 0) : el.value;
+            const rec = recipes[recIdx]; if (!rec) return;
+            if (type === 'cycleTime' || type === 'buildingCount' || type === 'name' || type === 'building') {
+                rec[type] = val;
+            } else if (type === 'input' || type === 'output') {
+                if (!rec[type + 's'][slotIdx]) rec[type + 's'][slotIdx] = {name:'', qty:0};
+                rec[type + 's'][slotIdx][field] = val;
+            }
+            calculateRecipeRow(recIdx); updateSummariesAndBalance();
+        }
+        function loadInitialRecipes() {
+            recipes = [
+                { 
+                    name: getTranslation('initialRecipeMoltenIronName'), 
+                    building: getTranslation('building_smelter_1_name'), 
+                    cycleTime: 60, buildingCount: 1, 
+                    inputs: [
+                        { name: getTranslation('resourceNames.ironOre'), qty: 36 }, 
+                        { name: getTranslation('resourceNames.coal'), qty: 12}
+                    ], 
+                    outputs: [
+                        { name: getTranslation('resourceNames.moltenIron'), qty: 12 }, 
+                        { name: getTranslation('resourceNames.slag'), qty: 6 }
+                    ] 
+                },
+                { 
+                    name: getTranslation('initialRecipeSteelName'), 
+                    building: getTranslation('building_converter_1_name'), 
+                    cycleTime: 60, buildingCount: 1, 
+                    inputs: [
+                        { name: getTranslation('resourceNames.moltenIron'), qty: 24 }, 
+                        { name: getTranslation('resourceNames.coal'), qty: 6 }
+                    ], 
+                    outputs: [
+                        { name: getTranslation('resourceNames.steel'), qty: 18 }, 
+                        { name: getTranslation('resourceNames.exhaustGas'), qty: 12 }
+                    ] 
+                }
+            ];
+        }
+        function addEmptyRecipeRow(prefill = null) {
+            const newRec = {
+                name: prefill?.name || '', building: prefill?.building || '', cycleTime: prefill?.cycleTime || 60, buildingCount: prefill?.buildingCount || 1,
+                inputs: prefill?.inputs && prefill.inputs.length > 0 ? prefill.inputs.map(i => ({...i})) : [{ name: '', qty: 0 }],
+                outputs: prefill?.outputs && prefill.outputs.length > 0 ? prefill.outputs.map(o => ({...o})) : [{ name: '', qty: 0 }]
+            };
+            recipes.push(newRec); renderRecipesTable(); updateAllCalculations();
+        }
+        function addResourceSlot(recIdx, type) { 
+            recipes[recIdx][type].push({ name: '', qty: 0 }); renderRecipesTable(); updateAllCalculations();
+        }
+        function removeResourceSlot(recIdx, type, slotIdx) { 
+            recipes[recIdx][type].splice(slotIdx, 1);
+            if (recipes[recIdx][type].length === 0) recipes[recIdx][type].push({ name: '', qty: 0 });
+            renderRecipesTable(); updateAllCalculations();
+        }
+        function removeRecipeRow(idx) { recipes.splice(idx, 1); renderRecipesTable(); updateAllCalculations(); }
+
+        function renderRecipesTable() {
+            const tbody = document.getElementById('recipesTableBody'); tbody.innerHTML = ''; 
+            recipes.forEach((rec, recIdx) => {
+                const row = tbody.insertRow(); row.classList.add('removable-row');
+                let cell = row.insertCell(); // Recipe Name
+                const nameInp = document.createElement('input'); nameInp.type = 'text'; nameInp.value = rec.name;
+                nameInp.classList.add('input-sm', 'name-input', 'w-full'); nameInp.onchange = (e) => handleRecipeDataChange(e.target, recIdx, 'name');
+                cell.appendChild(nameInp);
+
+                cell = row.insertCell(); // Building
+                cell.classList.add('divider-line-red');
+                const buildInp = document.createElement('input'); buildInp.type = 'text'; buildInp.value = rec.building;
+                buildInp.classList.add('input-sm', 'name-input', 'w-full'); buildInp.onchange = (e) => handleRecipeDataChange(e.target, recIdx, 'building');
+                cell.appendChild(buildInp);
+                
+                row.insertCell().appendChild(createNumericInput(rec.cycleTime, recIdx, 'cycleTime')); // Cycle Time
+                
+                cell = row.insertCell(); // Building Count
+                cell.classList.add('divider-line-red');
+                cell.appendChild(createNumericInput(rec.buildingCount, recIdx, 'buildingCount'));
+                
+                cell = row.insertCell(); cell.classList.add('text-center', 'align-middle', 'bg-light-green'); // Add Input Button
+                const addInBtn = document.createElement('button'); addInBtn.textContent = '+';
+                addInBtn.title = getTranslation('addInputButton');
+                addInBtn.classList.add('btn', 'btn-success', 'btn-xs'); addInBtn.onclick = () => addResourceSlot(recIdx, 'inputs');
+                cell.appendChild(addInBtn);
+
+                cell = row.insertCell(); // Input Resources Container
+                cell.classList.add('bg-light-green', 'divider-line-red');
+                const inputsContainer = document.createElement('div'); inputsContainer.classList.add('resource-slots-container');
+                rec.inputs.forEach((inp, i) => {
+                    const slotDiv = document.createElement('div'); slotDiv.classList.add('resource-slot');
+                    const resObj = resources.find(r => r.name === inp.name);
+                    if (resObj && resObj.iconUrl) {
+                        const img = document.createElement('img'); img.src = resObj.iconUrl; img.alt = ''; img.classList.add('slot-icon');
+                        img.onerror = () => { img.style.display = 'none'; }; slotDiv.appendChild(img);
+                    }
+                    // Removed static name display. Dropdown itself will show selected resource name.
+                    slotDiv.appendChild(createResourceDropdown('input', i, recIdx, inp.name));
+                    slotDiv.appendChild(createNumericInput(inp.qty, recIdx, 'inputQty', i));
+                    const rateSpan = document.createElement('span'); 
+                    rateSpan.classList.add(`input-rate-${recIdx}-${i}`, 'rate-display');
+                    const consRateTextFull = getTranslation('consumptionRateCol');
+                    const consRateTextParts = consRateTextFull.split('('); 
+                    const consUnit = consRateTextParts.length > 1 && consRateTextParts[1] ? consRateTextParts[1].replace(')', '') : consRateTextFull; 
+                    rateSpan.textContent = '0.00 ' + consUnit; 
+                    slotDiv.appendChild(rateSpan);
+                    const remBtn = document.createElement('button'); remBtn.textContent = '-'; remBtn.title = getTranslation('deleteButton');
+                    remBtn.classList.add('btn', 'btn-danger', 'btn-xs', 'mt-1'); remBtn.onclick = () => removeResourceSlot(recIdx, 'inputs', i);
+                    slotDiv.appendChild(remBtn);
+                    inputsContainer.appendChild(slotDiv);
+                });
+                cell.appendChild(inputsContainer);
+
+                cell = row.insertCell(); cell.classList.add('text-center', 'align-middle', 'bg-light-red'); // Add Output Button
+                const addOutBtn = document.createElement('button'); addOutBtn.textContent = '+';
+                addOutBtn.title = getTranslation('addOutputButton');
+                addOutBtn.classList.add('btn', 'btn-success', 'btn-xs'); addOutBtn.onclick = () => addResourceSlot(recIdx, 'outputs');
+                cell.appendChild(addOutBtn);
+
+                cell = row.insertCell(); // Output Resources Container
+                cell.classList.add('bg-light-red');
+                const outputsContainer = document.createElement('div'); outputsContainer.classList.add('resource-slots-container');
+                rec.outputs.forEach((out, i) => {
+                    const slotDiv = document.createElement('div'); slotDiv.classList.add('resource-slot');
+                     const resObj = resources.find(r => r.name === out.name);
+                    if (resObj && resObj.iconUrl) {
+                        const img = document.createElement('img'); img.src = resObj.iconUrl; img.alt = ''; img.classList.add('slot-icon');
+                        img.onerror = () => { img.style.display = 'none'; }; slotDiv.appendChild(img);
+                    }
+                    // Removed static name display
+                    slotDiv.appendChild(createResourceDropdown('output', i, recIdx, out.name));
+                    slotDiv.appendChild(createNumericInput(out.qty, recIdx, 'outputQty', i));
+                    const rateSpan = document.createElement('span'); 
+                    rateSpan.classList.add(`output-rate-${recIdx}-${i}`, 'rate-display');
+                    const prodRateTextFull = getTranslation('productionRateCol');
+                    const prodRateTextParts = prodRateTextFull.split('('); 
+                    const prodUnit = prodRateTextParts.length > 1 && prodRateTextParts[1] ? prodRateTextParts[1].replace(')', '') : prodRateTextFull; 
+                    rateSpan.textContent = '0.00 ' + prodUnit; 
+                    slotDiv.appendChild(rateSpan);
+                    const remBtn = document.createElement('button'); remBtn.textContent = '-'; remBtn.title = getTranslation('deleteButton');
+                    remBtn.classList.add('btn', 'btn-danger', 'btn-xs', 'mt-1'); remBtn.onclick = () => removeResourceSlot(recIdx, 'outputs', i);
+                    slotDiv.appendChild(remBtn);
+                    outputsContainer.appendChild(slotDiv);
+                });
+                cell.appendChild(outputsContainer);
+                
+                cell = row.insertCell(); cell.classList.add('text-center', 'align-middle'); // Action Cell (Delete Recipe)
+                const remRecBtn = document.createElement('button'); remRecBtn.textContent = getTranslation('removeRecipeButton');
+                remRecBtn.classList.add('btn', 'btn-danger', 'btn-xs', 'remove-btn-recipe'); remRecBtn.onclick = () => removeRecipeRow(recIdx);
+                cell.appendChild(remRecBtn);
+            });
+            updateAllResourceDropdownsInRecipes(); recipes.forEach((_,idx) => calculateRecipeRow(idx)); updateSummariesAndBalance();
+        }
+
+        function calculateRecipeRow(recIdx) {
+            const rec = recipes[recIdx]; if (!rec) return;
+            const cycle = rec.cycleTime || 0; const count = rec.buildingCount || 0;
+            const rowEl = document.getElementById('recipesTableBody').rows[recIdx]; if (!rowEl) return;
+
+            rec.inputs.forEach((inp, i) => {
+                const rate = (cycle > 0 && inp.qty > 0 && inp.name) ? (inp.qty / cycle * count) : 0;
+                const rateEl = rowEl.querySelector(`.input-rate-${recIdx}-${i}`);
+                const consRateTextFull = getTranslation('consumptionRateCol');
+                const consRateTextPartsCalc = consRateTextFull.split('('); 
+                const consUnitCalc = consRateTextPartsCalc.length > 1 && consRateTextPartsCalc[1] ? consRateTextPartsCalc[1].replace(')','') : consRateTextFull; 
+                if (rateEl) rateEl.textContent = rate.toFixed(2) + ' ' + consUnitCalc; 
+
+                const iconEl = rateEl?.closest('.resource-slot')?.querySelector('img.slot-icon');
+                if(iconEl) { 
+                    const resObj = resources.find(r => r.name === inp.name);
+                    if (resObj && resObj.iconUrl) { iconEl.src = resObj.iconUrl; iconEl.style.display='';} else {iconEl.style.display='none';}
+                }
+            });
+            rec.outputs.forEach((out, i) => {
+                const rate = (cycle > 0 && out.qty > 0 && out.name) ? (out.qty / cycle * count) : 0;
+                const rateEl = rowEl.querySelector(`.output-rate-${recIdx}-${i}`);
+                const prodRateTextFull = getTranslation('productionRateCol');
+                const prodRateTextPartsCalc = prodRateTextFull.split('('); 
+                const prodUnitCalc = prodRateTextPartsCalc.length > 1 && prodRateTextPartsCalc[1] ? prodRateTextPartsCalc[1].replace(')','') : prodRateTextFull; 
+                if (rateEl) rateEl.textContent = rate.toFixed(2) + ' ' + prodUnitCalc; 
+
+                const iconEl = rateEl?.closest('.resource-slot')?.querySelector('img.slot-icon');
+                 if(iconEl) { 
+                    const resObj = resources.find(r => r.name === out.name);
+                    if (resObj && resObj.iconUrl) { iconEl.src = resObj.iconUrl; iconEl.style.display='';} else {iconEl.style.display='none';}
+                }
+            });
+        }
+        function updateAllCalculations() { recipes.forEach((_, idx) => calculateRecipeRow(idx)); updateSummariesAndBalance(); }
+        function updateSummariesAndBalance() {
+            const cons = {}; const prod = {}; resources.forEach(r => { cons[r.name] = 0; prod[r.name] = 0; });
+            recipes.forEach(rec => {
+                const cycle = rec.cycleTime || 0; const count = rec.buildingCount || 0;
+                if (cycle > 0 && count > 0) {
+                    rec.inputs.forEach(i => { if (i.name && i.qty > 0) cons[i.name] = (cons[i.name] || 0) + (i.qty / cycle * count); });
+                    rec.outputs.forEach(o => { if (o.name && o.qty > 0) prod[o.name] = (prod[o.name] || 0) + (o.qty / cycle * count); });
+                }
+            });
+            renderSummaryTable('consumptionSummaryTableBody', cons); renderSummaryTable('productionSummaryTableBody', prod);
+            renderBalanceTable(prod, cons);
+        }
+        function renderSummaryTable(tbodyId, data) {
+            const tbody = document.getElementById(tbodyId); tbody.innerHTML = '';
+            const currentResourceNames = [...resources].sort((a,b)=>a.name.localeCompare(b.name, currentLanguage)).map(r=>r.name);
+            currentResourceNames.forEach(resName => { 
+                const val = data[resName] || 0;
+                if (val > 0.0001 || resources.some(r=>r.name === resName)) { 
+                    const r = tbody.insertRow(); 
+                    const nameCell = r.insertCell();
+                    const resObj = resources.find(robj => robj.name === resName);
+                    if (resObj && resObj.iconUrl) {
+                        const img = document.createElement('img'); img.src = resObj.iconUrl; img.alt = ''; img.classList.add('resource-list-icon');
+                        img.onerror = () => { img.style.display = 'none'; }; nameCell.appendChild(img);
+                    }
+                    nameCell.appendChild(document.createTextNode(resName));
+                    r.insertCell().textContent = val.toFixed(2);
+                }
+            });
+        }
+        function renderBalanceTable(prodData, consData) {
+            const tbody = document.getElementById('balanceSummaryTableBody'); tbody.innerHTML = '';
+            const currentResourceNames = [...resources].sort((a,b)=>a.name.localeCompare(b.name, currentLanguage)).map(r=>r.name);
+            currentResourceNames.forEach(resName => {
+                const p = prodData[resName] || 0; const c = consData[resName] || 0; const bal = p - c;
+                if (resources.some(r=>r.name === resName) || p > 0.0001 || c > 0.0001) {
+                    const r = tbody.insertRow(); 
+                    const nameCell = r.insertCell();
+                    const resObj = resources.find(robj => robj.name === resName);
+                     if (resObj && resObj.iconUrl) {
+                        const img = document.createElement('img'); img.src = resObj.iconUrl; img.alt = ''; img.classList.add('resource-list-icon');
+                        img.onerror = () => { img.style.display = 'none'; }; nameCell.appendChild(img);
+                    }
+                    nameCell.appendChild(document.createTextNode(resName));
+                    
+                    nameCell.classList.remove('text-balance-positive', 'text-balance-negative', 'font-bold'); 
+                    if (bal < -0.0001) {
+                        nameCell.classList.add('text-balance-negative');
+                    } else if (bal > 0.0001) {
+                        nameCell.classList.add('text-balance-positive');
+                    }
+
+                    r.insertCell().textContent = p.toFixed(2); 
+                    r.insertCell().textContent = c.toFixed(2);
+                    const balanceCell = r.insertCell(); 
+                    balanceCell.textContent = bal.toFixed(2);
+                    balanceCell.classList.remove('text-balance-positive', 'text-balance-negative', 'font-bold'); 
+                    if (bal < -0.0001) {
+                        balanceCell.classList.add('text-balance-negative');
+                    } else if (bal > 0.0001) {
+                        balanceCell.classList.add('text-balance-positive');
+                    }
+                }
+            });
+        }
+
+        const geminiModal = document.getElementById('geminiSuggestionModal');
+        const geminiSpinner = document.getElementById('geminiLoadingSpinner');
+        const suggestBtn = document.getElementById('suggestRecipeBtn');
+        function openGeminiModal() {
+            document.getElementById('geminiSuggestionText').textContent = '';
+            document.getElementById('geminiErrorText').style.display = 'none';
+            document.getElementById('geminiRecipeDetails').style.display = 'none';
+            geminiModal.style.display = 'block';
+        }
+        function closeGeminiModal() { geminiModal.style.display = 'none'; currentSuggestedRecipe = null; }
+        window.onclick = function(e) { if (e.target == geminiModal) closeGeminiModal(); }
+        
+        async function suggestRecipeFromSurplus() {
+            openGeminiModal(); geminiSpinner.style.display = 'inline-block'; suggestBtn.disabled = true;
+            document.getElementById('geminiSuggestionText').textContent = getTranslation('geminiLoading');
+            const surplus = []; const prod = {}; const cons = {};
+            resources.forEach(r => { cons[r.name] = 0; prod[r.name] = 0; });
+            recipes.forEach(rec => {
+                const cycle = rec.cycleTime || 0; const count = rec.buildingCount || 0;
+                if (cycle > 0 && count > 0) {
+                    rec.inputs.forEach(i => { if (i.name && i.qty > 0) cons[i.name] = (cons[i.name] || 0) + (i.qty / cycle * count); });
+                    rec.outputs.forEach(o => { if (o.name && o.qty > 0) prod[o.name] = (prod[o.name] || 0) + (o.qty / cycle * count); });
+                }
+            });
+            resources.forEach(rObj => { if ((prod[rObj.name] || 0) - (cons[rObj.name] || 0) > 0.1) surplus.push(rObj.name); });
+            if (surplus.length === 0) {
+                document.getElementById('geminiSuggestionText').textContent = ''; showAlert('geminiNoSurplus', true);
+                geminiSpinner.style.display = 'none'; suggestBtn.disabled = false; return;
+            }
+            const prompt = `Captain of Industry game expert. Surplus resources: ${surplus.join(', ')}. Suggest one new product and simplified recipe. Format: JSON object. Recipe name, building type, up to 3 inputs (name, approx qty/cycle), up to 2 outputs (name, approx qty/cycle). Focus on common early/mid-game. Reasonable quantities for a single cycle (e.g., 60s). Standard game resource names.`;
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "suggestedRecipeName": { "type": "STRING" }, "suggestedBuilding": { "type": "STRING" },
+                            "suggestedInputs": { "type": "ARRAY", "maxItems": 3, "items": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "qty": { "type": "NUMBER" } }, "required": ["name", "qty"] }},
+                            "suggestedOutputs": { "type": "ARRAY", "maxItems": 2, "items": { "type": "OBJECT", "properties": { "name": { "type": "STRING" }, "qty": { "type": "NUMBER" } }, "required": ["name", "qty"] }}
+                        }, "required": ["suggestedRecipeName", "suggestedBuilding", "suggestedInputs", "suggestedOutputs"]
+                    }
+                }
+            };
+            try {
+                const resp = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!resp.ok) { const errData = await resp.json(); throw new Error(`API ${resp.status}: ${errData?.error?.message || resp.statusText}`); }
+                const res = await resp.json();
+                if (res.candidates?.[0]?.content?.parts?.[0]) {
+                    const parsed = JSON.parse(res.candidates[0].content.parts[0].text);
+                    currentSuggestedRecipe = { name: parsed.suggestedRecipeName, building: parsed.suggestedBuilding, inputs: parsed.suggestedInputs.map(i => ({ name: i.name, qty: parseFloat(i.qty) || 0 })), outputs: parsed.suggestedOutputs.map(o => ({ name: o.name, qty: parseFloat(o.qty) || 0 })) };
+                    currentSuggestedRecipe.inputs.forEach(i => addResourceToList({name: i.name, iconUrl: null})); 
+                    currentSuggestedRecipe.outputs.forEach(o => addResourceToList({name: o.name, iconUrl: null}));
+                    updateAllResourceDropdownsInRecipes(); displaySuggestedRecipe(currentSuggestedRecipe);
+                } else { showAlert('geminiParseError', true); }
+            } catch (err) { console.error('Gemini API Error:', err); showAlert('geminiError', true); }
+            finally { geminiSpinner.style.display = 'none'; suggestBtn.disabled = false; document.getElementById('geminiSuggestionText').textContent = ''; }
+        }
+        function displaySuggestedRecipe(sugg) {
+            document.getElementById('geminiRecipeDetails').style.display = 'block'; document.getElementById('geminiErrorText').style.display = 'none';
+            document.getElementById('modalRecipeName').textContent = sugg.name; document.getElementById('modalBuildingName').textContent = sugg.building;
+            const ulIn = document.getElementById('modalInputsList'); ulIn.innerHTML = ''; sugg.inputs.forEach(i => { const li = document.createElement('li'); li.textContent = `${i.name}: ${i.qty}`; ulIn.appendChild(li); });
+            const ulOut = document.getElementById('modalOutputsList'); ulOut.innerHTML = ''; sugg.outputs.forEach(o => { const li = document.createElement('li'); li.textContent = `${o.name}: ${o.qty}`; ulOut.appendChild(li); });
+        }
+        function addSuggestedRecipeToTable() { if (currentSuggestedRecipe) { addEmptyRecipeRow(currentSuggestedRecipe); closeGeminiModal(); } }
+
+        function saveDataToFile() {
+            const saveData = {
+                version: "coi_calc_v11_translation_fixes", 
+                resources: resources.map(r => ({ name: r.name, iconUrl: r.iconUrl, translationKey: r.translationKey})), 
+                recipes: recipes
+            };
+            const jsonData = JSON.stringify(saveData, null, 2); 
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `coi_calculator_data_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function loadDataFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!confirm(getTranslation('confirmLoad'))) {
+                event.target.value = null; 
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const loadedData = JSON.parse(e.target.result);
+                    if (loadedData && loadedData.resources && loadedData.recipes && loadedData.version) {
+                        resources = loadedData.resources.map(res => {
+                            let name = res.name; // Default to saved name
+                            // If there's a translationKey, find the appropriate translation for the current language
+                            // This ensures that if a user saved data in one language, default resources still get translated
+                            // when loaded in another language. User-added resources will retain their saved names.
+                            if (res.translationKey && defaultResourceTranslations[res.translationKey]) {
+                                name = getTranslation('resourceNames.' + res.translationKey);
+                            }
+                            return { 
+                                name: name, 
+                                iconUrl: res.iconUrl || null,
+                                translationKey: res.translationKey || null // Preserve or find translationKey
+                            };
+                        });
+                        
+                        recipes = loadedData.recipes;
+                        
+                        // Now, ensure that names within the loaded recipes (for default resources) are also translated
+                        recipes.forEach(recipe => {
+                            // Translate recipe name if it was one of the initial ones
+                            const recipeNameKey = Object.keys(translations[currentLanguage]).find(key => 
+                                key.startsWith('initialRecipe') && 
+                                (translations['ru'][key] === recipe.name || translations['en'][key] === recipe.name || translations['uk'][key] === recipe.name || translations['de'][key] === recipe.name)
+                            );
+                            if(recipeNameKey) recipe.name = getTranslation(recipeNameKey);
+
+                            // Translate building name if it was one of the initial ones
+                             const buildingNameKey = Object.keys(translations[currentLanguage]).find(key =>
+                                key.startsWith('building_') &&
+                                (translations['ru'][key] === recipe.building || translations['en'][key] === recipe.building || translations['uk'][key] === recipe.building || translations['de'][key] === recipe.building)
+                            );
+                            if(buildingNameKey) recipe.building = getTranslation(buildingNameKey);
+
+
+                            recipe.inputs.forEach(input => {
+                                const resObj = resources.find(r => (r.translationKey && defaultResourceTranslations[r.translationKey]?.[currentLanguage] === input.name) || 
+                                                                  (r.translationKey && defaultResourceTranslations[r.translationKey]?.['ru'] === input.name) || // Check against original key name if needed
+                                                                  (!r.translationKey && r.name === input.name)); // For user-added resources
+                                if (resObj && resObj.translationKey) {
+                                    input.name = getTranslation('resourceNames.' + resObj.translationKey);
+                                }
+                            });
+                            recipe.outputs.forEach(output => {
+                                const resObj = resources.find(r => (r.translationKey && defaultResourceTranslations[r.translationKey]?.[currentLanguage] === output.name) ||
+                                                                   (r.translationKey && defaultResourceTranslations[r.translationKey]?.['ru'] === output.name) ||
+                                                                   (!r.translationKey && r.name === output.name));
+                                if (resObj && resObj.translationKey) {
+                                    output.name = getTranslation('resourceNames.' + resObj.translationKey);
+                                }
+                            });
+                        });
+
+                        resources.sort((a,b) => a.name.localeCompare(b.name, currentLanguage));
+                        
+                        renderResourceList();
+                        renderRecipesTable(); 
+                        updateAllCalculations(); 
+                        applyTranslations(); 
+                        alert(getTranslation('dataLoadedSuccessfully')); 
+                    } else {
+                        showAlert('invalidFileFormat', true);
+                    }
+                } catch (error) {
+                    console.error("Error parsing loaded file:", error);
+                    showAlert('fileLoadError', true);
+                } finally {
+                    event.target.value = null; 
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+   <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(registration => {
+          console.log('PWA ServiceWorker registration successful with scope: ', registration.scope);
+        })
+        .catch(error => {
+          console.log('PWA ServiceWorker registration failed: ', error);
+        });
+    });
+  }
+</script>
+</body>
+</html>
