@@ -7,6 +7,8 @@ Tired of stopping production because you're missing a single cog? Tired of compl
 
 https://www.youtube.com/live/k1PqSDf_tN4?si=ylfwmIGTBkeotHYD
 
+https://github.com/VadimSenna/Captain-of-Industry-resource-calculator-/tree/main
+
 This calculator will help you:
 ✅ **Accurately plan production chains:** from raw ore to the final product.
 ✅ **Find bottlenecks:** instantly see which resources are missing (deficits).
